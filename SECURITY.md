@@ -26,6 +26,7 @@ Se você identificar uma falha de segurança ou uma vulnerabilidade crítica nas
 
 Envie um relatório detalhado com o cenário de teste (*Proof of Concept*) para os mantenedores:
 * **Matheus Garcia Sampaio:** [matheusgarciasam@gmail.com](mailto:matheusgarciasam@gmail.com)
+* **Luccas Henrique Vieira Ribeiro** [luccas.henrique.vr@gmail.com](mailto:luccas.henrique.vr@gmail.com)
 
 Você receberá um retorno sobre a análise do problema em até **5 dias úteis**.
 
