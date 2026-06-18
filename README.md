@@ -37,26 +37,26 @@ FP_DCC606_Tema_6_RR_2026/
 │   ├── resenha.pdf           # Resenha compilada (4 páginas)
 │   ├── sbc-template.sty      # Estilo SBC para compilação
 │   └── README.md             # Instruções de compilação (Overleaf / local)
-└── impl_estrutura/
-    ├── Makefile
-    ├── include/
-    │   ├── graph.h            # Estrutura do grafo (Bitset + lista de adjacência)
-    │   ├── clique.h           # Interface dos algoritmos de clique
-    │   ├── dimacs.h           # Leitor de benchmarks DIMACS .clq
-    │   ├── twitter_parser.h   # Parser do dataset Twitter CSV
-    │   └── dot_export.h       # Exportador GraphViz .dot
-    ├── src/
-    │   ├── graph.c            # Implementação do grafo
-    │   ├── clique.c           # Algoritmo Guloso + GRASP
-    │   ├── dimacs.c           # Leitor DIMACS
-    │   ├── twitter_parser.c   # Parser CSV Twitter
-    │   ├── dot_export.c       # Gerador de arquivo .dot
-    │   └── main.c             # Ponto de entrada e modos de execução
-    └── benchmarks/
-        ├── brock200_2.clq     # Benchmark DIMACS (200 vértices, ω=12)
-        ├── p_hat300-1.clq     # Benchmark DIMACS (300 vértices, ω=8)
-        ├── sample.csv         # Amostra do dataset Twitter (99 tweets)
-        └── twcs.csv           # Dataset completo Twitter (3M tweets) *
+|── impl_estrutura/
+│   ├── Makefile
+│   ├── include/
+│   │   ├── graph.h            # Estrutura do grafo (Bitset + lista de adjacência)
+│   │   ├── clique.h           # Interface dos algoritmos de clique
+│   │   ├── dimacs.h           # Leitor de benchmarks DIMACS .clq
+│   │   ├── twitter_parser.h   # Parser do dataset Twitter CSV
+│   │   └── dot_export.h       # Exportador GraphViz .dot
+│   ├── src/
+│   │   ├── graph.c            # Implementação do grafo
+│   │   ├── clique.c           # Algoritmo Guloso + GRASP
+│   │   ├── dimacs.c           # Leitor DIMACS
+│   │   ├── twitter_parser.c   # Parser CSV Twitter
+│   │   ├── dot_export.c       # Gerador de arquivo .dot
+│   │   └── main.c             # Ponto de entrada e modos de execução
+│   └── benchmarks/
+│       ├── brock200_2.clq     # Benchmark DIMACS (200 vértices, ω=12)
+│       ├── p_hat300-1.clq     # Benchmark DIMACS (300 vértices, ω=8)
+│       ├── sample.csv         # Amostra do dataset Twitter (99 tweets)
+│       └── twcs.csv           # Dataset completo Twitter (3M tweets) *
 ```
 
 > \* O arquivo `twcs.csv` não está versionado por exceder o limite do GitHub (516 MB).
