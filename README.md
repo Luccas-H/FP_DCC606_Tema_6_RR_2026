@@ -30,6 +30,13 @@ FP_DCC606_Tema_6_RR_2026/
 ├── CODE_OF_CONDUCT.md
 ├── pull_request_template.md
 ├── README.md
+├── relatorio/                # Entregáveis acadêmicos (LaTeX, template SBC)
+│   ├── relatorio.tex         # Relatório IEEE/SBC do projeto
+│   ├── relatorio.pdf         # Relatório compilado (7 páginas)
+│   ├── resenha.tex           # Resenha crítica do artigo (Behar & Cohen, EDBT 2018)
+│   ├── resenha.pdf           # Resenha compilada (4 páginas)
+│   ├── sbc-template.sty      # Estilo SBC para compilação
+│   └── README.md             # Instruções de compilação (Overleaf / local)
 └── impl_estrutura/
     ├── Makefile
     ├── include/
@@ -53,6 +60,17 @@ FP_DCC606_Tema_6_RR_2026/
 ```
 
 > \* O arquivo `twcs.csv` não está versionado por exceder o limite do GitHub (516 MB).
+
+---
+
+## Documentos do Projeto
+
+Os entregáveis acadêmicos estão na pasta [`relatorio/`](relatorio/), escritos em LaTeX com o template oficial da SBC:
+
+- **`relatorio.pdf`** — Relatório IEEE/SBC do projeto (problema, complexidade, implementação, estudo comparativo de desempenho, comparação teórica com Bron–Kerbosch).
+- **`resenha.pdf`** — Resenha crítica do artigo *Finding All Maximal Connected s-Cliques in Social Networks* (Behar & Cohen, EDBT 2018), cobrindo a distinção entre cliques/s-plexos/s-cliques, as estratégias de poda e a aplicabilidade a grafos dinâmicos.
+
+Instruções de compilação (Overleaf ou local) em [`relatorio/README.md`](relatorio/README.md).
 
 ---
 
@@ -192,6 +210,6 @@ Vértices do clique aparecem em **vermelho**, os demais em cinza.
 
 ## Referências
 
-- SANTIAGO, R.; LIMA, D.; FONTES, M. *Finding All Maximal Connected s-Cliques in Social Networks*. EDBT, 2018.
+- BEHAR, R.; COHEN, S. *Finding All Maximal Connected s-Cliques in Social Networks*. In: Proceedings of the 21st International Conference on Extending Database Technology (EDBT), p. 61–72, 2018. DOI: 10.5441/002/edbt.2018.07.
 - DIMACS Graph Coloring Benchmark: http://www.cs.unc.edu/Research/Coloring/
 - Kaggle — Customer Support on Twitter: https://www.kaggle.com/datasets/thoughtvector/customer-support-on-twitter
