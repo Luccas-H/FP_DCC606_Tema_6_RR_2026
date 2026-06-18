@@ -1,0 +1,249 @@
+\documentclass[12pt]{article}
+
+\usepackage{sbc-template}
+\usepackage{graphicx,url}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\sloppy
+
+\title{Resenha Crítica\\
+\emph{Finding All Maximal Connected $s$-Cliques in Social Networks}}
+
+\author{Matheus Garcia\inst{1}, Luccas Henrique\inst{1}}
+
+\address{Departamento de Ciência da Computação --- Universidade Federal de Roraima (UFRR)\\
+  Boa Vista --- RR --- Brasil
+  \email{matheusgarciasam@gmail.com, luccas.henrique.vr@gmail.com}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This is a critical review of the paper \emph{Finding All Maximal Connected
+$s$-Cliques in Social Networks} (EDBT, 2018), by Rachel Behar and Sara Cohen.
+The review covers three aspects: the distinction among cliques, $s$-plexes and
+$s$-cliques; the pruning and optimization strategies of the proposed algorithms;
+and the (lack of) applicability of the work to dynamic graphs.
+\end{abstract}
+
+\begin{resumo}
+Esta é uma resenha crítica do artigo \emph{Finding All Maximal Connected
+$s$-Cliques in Social Networks} (EDBT, 2018), de Rachel Behar e Sara Cohen. A
+resenha aborda três aspectos: a distinção entre cliques, $s$-plexos e
+$s$-cliques; as estratégias de poda e otimização dos algoritmos propostos; e a
+(in)aplicabilidade do trabalho a grafos dinâmicos.
+\end{resumo}
+
+\section{Apresentação do Artigo}
+
+O artigo \emph{Finding All Maximal Connected $s$-Cliques in Social Networks}
+\cite{behar2018} foi publicado na 21\textsuperscript{st} \emph{International
+Conference on Extending Database Technology} (EDBT 2018) e é de autoria de
+\textbf{Rachel Behar} e \textbf{Sara Cohen}, da \emph{Rachel and Selim Benin
+School of Computer Science and Engineering}, Universidade Hebraica de Jerusalém.
+
+\noindent\textbf{Nota sobre a citação.} O enunciado do trabalho atribui o artigo
+a ``SANTIAGO, R.; LIMA, D.; FONTES, M.''. Ao localizar a versão pública nos anais
+do EDBT 2018 (\emph{OpenProceedings}, DOI \texttt{10.5441/002/edbt.2018.07}),
+verificou-se que a autoria correta é de Behar e Cohen. Esta resenha baseia-se no
+conteúdo real do artigo; mantemos o registro da divergência para fins de
+transparência.
+
+O problema central é a \emph{enumeração de todas} as $s$-cliques conexas maximais
+de um grafo $G$. A motivação vem da análise de redes sociais: cliques modelam
+grupos coesos, mas a exigência de que \emph{todos} os pares estejam diretamente
+ligados é restritiva demais para dados reais, em que arestas legítimas podem
+estar ausentes. Os autores propõem (i) um algoritmo de \emph{atraso polinomial}
+(\emph{polynomial delay}) e (ii) variantes do algoritmo de Bron--Kerbosch
+adaptadas ao problema, validadas empiricamente sobre dados reais e sintéticos.
+
+\section{Distinção entre Cliques, $s$-Plexos e $s$-Cliques}
+
+Um dos méritos do artigo é situar com precisão a $s$-clique entre as diversas
+\emph{relaxações de clique}. A resenha organiza essa distinção em torno do
+critério que cada conceito relaxa.
+
+\paragraph{Clique.} Um conjunto $U \subseteq V(G)$ é um \emph{clique} se todo par
+$u, v \in U$ é adjacente, isto é, o subgrafo induzido $G[U]$ é completo. É a noção
+mais rígida de coesão.
+
+\paragraph{$s$-Clique (relaxação por \emph{distância}).} Introduzida há mais de
+65 anos, a $s$-clique relaxa a coesão pela \emph{distância}: $U$ é uma
+$s$-clique se, para todo par $u, v \in U$, vale $dist_G(u, v) \leq s$. Para
+$s = 1$, a definição coincide com a de clique. Um ponto sutil e crucial, bem
+destacado pelos autores, é que a distância é medida em \emph{todo} o grafo $G$,
+e não apenas dentro de $U$ --- por isso uma $s$-clique pode ser
+\textbf{desconexa} quando os caminhos mínimos passam por vértices externos a $U$.
+
+\paragraph{$s$-Clique conexa (contribuição do artigo).} Para corrigir essa
+fragilidade, os autores adicionam ``o requisito natural de conectividade'':
+$U$ é uma \emph{$s$-clique conexa} se é uma $s$-clique \emph{e} $G[U]$ é conexo.
+Uma $s$-clique conexa é \emph{maximal} se nenhum superconjunto próprio mantém
+ambas as propriedades.
+
+\paragraph{$s$-Plexo (relaxação por \emph{grau}).} O $s$-plexo (na literatura,
+$k$-\emph{plex}) relaxa a coesão por um critério \emph{de grau}, e não de
+distância: um conjunto $U$ com $|U| = n$ vértices é um $s$-plexo se cada vértice
+de $U$ é adjacente a \emph{pelo menos} $n - s$ dos demais (ou seja, cada vértice
+pode deixar de se conectar a no máximo $s - 1$ outros membros). Para $s = 1$, o
+$s$-plexo também recai no clique. A diferença conceitual em relação à $s$-clique
+é, portanto, fundamental: enquanto a $s$-clique tolera \emph{afastamento}
+(vértices a até $s$ saltos), o $s$-plexo tolera \emph{ausência de arestas}
+(um número limitado de não-vizinhos por vértice). O artigo trata o $s$-plexo
+como relaxação correlata na revisão de literatura, mas o seu foco recai sobre as
+relaxações baseadas em distância.
+
+\paragraph{Relaxações correlatas.} O artigo ainda contrasta a $s$-clique com:
+o \emph{$s$-club}, em que o diâmetro $\leq s$ é medido \emph{dentro} de $G[U]$
+(distância interna), e não em $G$ --- noção mais restritiva, não-hereditária e
+cujo teste de maximalidade é NP-completo; e a \emph{$\gamma$-quase-clique}, em
+que cada vértice se conecta a pelo menos $\gamma(|S|-1)$ outros. Os autores
+argumentam, de forma convincente, que a $s$-clique conexa equilibra
+flexibilidade (capta ``quase-cliques'' realistas) e tratabilidade (admite
+enumeração com atraso polinomial, ao contrário do $s$-club).
+
+\section{Estratégias de Poda}
+
+O artigo apresenta dois grandes blocos algorítmicos, cada um com suas técnicas de
+poda do espaço de busca.
+
+\subsection{Algoritmo de Atraso Polinomial}
+
+O \textsc{PolyDelayEnum} garante atraso polinomial: tempo polinomial até a
+primeira solução, entre soluções consecutivas e até o término. Suas estruturas de
+poda são uma \emph{fila} $Q$ de $s$-cliques conexas a expandir e um
+\emph{índice} $\mathcal{I}$ de soluções já geradas. O índice é implementado como
+uma \emph{B-Tree}, garantindo inserção e teste de pertinência em tempo
+logarítmico --- o que \emph{poda a reemissão de duplicatas} sem comprometer o
+atraso polinomial ($O(|V(G)|^3)$).
+
+\subsection{Adaptações do Bron--Kerbosch}
+
+Reconhecendo que o Bron--Kerbosch, embora sem garantia de atraso polinomial, é o
+mais rápido na prática para cliques maximais, os autores o adaptam em duas
+variantes que diferem na invariante mantida sobre o conjunto $R$ (clique
+parcial):
+
+\begin{itemize}
+  \item \textsc{CsCliques1}: $R$ é \emph{sempre} uma $s$-clique conexa. A
+  conexidade é preservada restringindo os candidatos de $P$ aos vértices
+  adjacentes a algum vértice de $R$ (a vizinhança $N^{\geq 1}(R)$) e intersectando
+  $P$ e $X$ com $N^s(v)$. Essa poda evita ramos que gerariam conjuntos
+  desconexos.
+  \item \textsc{CsCliques2}: $R$ é sempre uma $s$-clique, possivelmente
+  \emph{desconexa}. Faz mais trabalho redundante, mas, por iterar sobre todos os
+  vértices, é mais ``amigável'' à técnica de \emph{pivoting}.
+\end{itemize}
+
+\paragraph{Pivoting (Proposição 5.5).} A principal poda herdada do
+Bron--Kerbosch clássico é o \emph{pivô}: escolhe-se um vértice $u$ e itera-se
+apenas sobre $P - N^s(u)$, em vez de todo $P$, reduzindo o fator de ramificação.
+Os autores demonstram (Proposição 5.5) a condição que justifica a poda: para todo
+$u$, qualquer $s$-clique conexa maximal $C$ deve conter $u$, ou conter um vértice
+fora de $N^s(u)$, ou não ter vizinhos em $N(u)$. Escolhe-se o pivô
+$u \in (P \cup X) \cap N^{\geq 1}(R)$ que \emph{minimiza} $|P - N^s(u)|$. Um
+ponto crítico bem observado: o \emph{pivoting} só é integrável ao
+\textsc{CsCliques2}, pois requer iterar sobre vértices que podem não ser vizinhos
+de $R$ --- algo que violaria a invariante de conexidade do \textsc{CsCliques1}.
+
+\paragraph{Limite fundamental da poda (Teorema 5.6).} O resultado mais
+instigante da seção é \emph{negativo}. O ideal seria podar todo ramo
+$(R, P, X)$ para o qual \emph{não exista} nenhuma $s$-clique conexa $C$ com
+$R \subseteq C \subseteq R \cup P$ (\emph{checking for feasibility}). Os autores
+provam (Teorema 5.6, por redução do 3-SAT) que decidir essa existência é
+\textbf{NP-completo}. Logo, \emph{não há} como podar eficientemente todos os
+ramos inúteis no caso geral --- uma limitação intrínseca, não um defeito do
+projeto algorítmico. Como otimizações adicionais, o artigo menciona ainda a
+ordenação por \emph{degeneracy} e o reconhecimento antecipado de casos especiais
+de ramificação.
+
+\subsection{Avaliação}
+
+A combinação ``atraso polinomial garantido'' \emph{vs.} ``Bron--Kerbosch rápido
+na prática'' é bem equilibrada: o primeiro oferece garantia teórica, os segundos,
+desempenho real. O Teorema 5.6 é o ponto alto da análise de poda, pois delimita
+honestamente o que é (in)alcançável. Senti falta, contudo, de uma discussão
+quantitativa de \emph{quanto} cada poda contribui isoladamente para o ganho
+empírico.
+
+\section{Aplicabilidade a Grafos Dinâmicos}
+
+Este é o aspecto em que o artigo é mais \emph{lacunar}, e merece análise crítica.
+O trabalho assume um grafo $G$ \textbf{estático}: enumera todas as $s$-cliques
+conexas maximais de um \emph{instantâneo} da rede. Não há, em nenhuma seção,
+tratamento de inserção/remoção de vértices ou arestas, janelas temporais ou
+manutenção incremental --- a única menção próxima é a citação, em trabalhos
+relacionados, da enumeração sobre grafos \emph{incertos} de terceiros, o que é
+distinto de grafos dinâmicos.
+
+A omissão é relevante porque redes sociais são \emph{intrinsecamente dinâmicas}.
+Avaliamos criticamente as implicações:
+
+\begin{itemize}
+  \item \textbf{Recomputação custosa.} Sem mecanismo incremental, cada
+  atualização do grafo exigiria reexecutar a enumeração do zero. Dado que a
+  saída pode ser \emph{exponencial} e o atraso é $O(|V|^3)$, recalcular a cada
+  mudança é proibitivo em redes que evoluem a cada segundo.
+  \item \textbf{Sensibilidade da conexidade.} A própria contribuição do artigo
+  --- exigir conexidade --- é frágil sob remoção de arestas: a exclusão de uma
+  única aresta-ponte pode \emph{desconectar} uma $s$-clique conexa maximal,
+  exigindo recálculo não trivial.
+  \item \textbf{Efeitos não-locais da distância.} Como a $s$-clique é definida
+  por distâncias em \emph{todo} $G$, uma alteração local (uma aresta) pode
+  modificar caminhos mínimos e, com eles, $s$-cliques \emph{distantes} do ponto
+  de mudança. Isso dificulta qualquer manutenção incremental localizada.
+  \item \textbf{Poda incremental também é difícil.} O Teorema 5.6 (NP-completude
+  do teste de viabilidade) sugere que estratégias incrementais de poda herdariam
+  a mesma dureza, desencorajando soluções dinâmicas exatas e eficientes.
+\end{itemize}
+
+Os próprios autores reconhecem deixar \emph{aplicações} (como predição de links e
+descoberta de conexões ocultas) para trabalhos futuros; a manutenção em cenário
+dinâmico seria uma extensão natural --- e desafiadora --- ainda em aberto. Vale
+notar que essa limitação se reflete diretamente em nosso projeto: o grafo de
+interações do Twitter é construído estaticamente a partir de um \emph{snapshot}
+em CSV, herdando a mesma restrição.
+
+\section{Considerações Finais}
+
+O artigo de Behar e Cohen é uma contribuição sólida e teoricamente bem
+fundamentada: define com rigor a $s$-clique conexa, distingue-a com clareza das
+demais relaxações, oferece um algoritmo de atraso polinomial com prova de
+corretude e adapta o Bron--Kerbosch com técnicas de poda eficazes, delimitando
+honestamente os limites do que se pode podar (Teorema 5.6). Seus principais
+méritos são o equilíbrio entre flexibilidade do modelo e tratabilidade
+computacional, e a validação experimental sobre dados reais e sintéticos.
+
+Como pontos de aprimoramento, destacam-se a ausência de tratamento de grafos
+dinâmicos --- crítico para o domínio de redes sociais --- e a falta de uma
+análise isolada da contribuição de cada técnica de poda. Ainda assim, o trabalho
+é diretamente relevante ao nosso projeto, pois fundamenta teoricamente o uso de
+relaxações de clique e das adaptações de Bron--Kerbosch para a detecção de
+comunidades em redes de atendimento ao cliente.
+
+\begin{thebibliography}{9}
+
+\bibitem{behar2018}
+BEHAR, R.; COHEN, S.
+Finding All Maximal Connected $s$-Cliques in Social Networks.
+In: \emph{Proceedings of the 21st International Conference on Extending Database
+Technology (EDBT)}, p.~61--72, 2018. DOI: 10.5441/002/edbt.2018.07.
+
+\bibitem{bron1973}
+BRON, C.; KERBOSCH, J.
+Algorithm 457: Finding All Cliques of an Undirected Graph.
+\emph{Communications of the ACM}, v.~16, n.~9, p.~575--577, 1973.
+
+\bibitem{seidman1978}
+SEIDMAN, S. B.; FOSTER, B. L.
+A Graph-Theoretic Generalization of the Clique Concept.
+\emph{Journal of Mathematical Sociology}, v.~6, n.~1, p.~139--154, 1978.
+
+\end{thebibliography}
+
+\end{document}

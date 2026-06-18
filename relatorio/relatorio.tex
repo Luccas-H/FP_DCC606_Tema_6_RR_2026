@@ -1,0 +1,419 @@
+\documentclass[12pt]{article}
+
+\usepackage{sbc-template}
+\usepackage{graphicx,url}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\sloppy
+
+\title{Detecção de Comunidades Críticas de Atendimento ao Cliente\\
+em Redes Sociais via Busca pelo Clique Máximo}
+
+\author{Matheus Garcia\inst{1}, Luccas Henrique\inst{1}}
+
+\address{Departamento de Ciência da Computação --- Universidade Federal de Roraima (UFRR)\\
+  Boa Vista --- RR --- Brasil
+  \email{matheusgarciasam@gmail.com, luccas.henrique.vr@gmail.com}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This work presents a combinatorial search engine for detecting critical
+customer-support communities in social networks. The interactions among users
+are modeled as an undirected graph and the problem of finding densely connected
+groups (\emph{crisis cohorts}) is reduced to the \emph{Maximum Clique} problem,
+which is NP-hard. Two heuristics were implemented in C11 --- a Greedy
+constructive algorithm and a GRASP metaheuristic --- both supported by a bitset
+representation that reduces neighborhood intersection to a bitwise AND. We report
+a complexity analysis, a theoretical comparison with the exact Bron--Kerbosch
+algorithm, and an experimental evaluation over DIMACS benchmarks and a real
+Twitter customer-support dataset.
+\end{abstract}
+
+\begin{resumo}
+Este trabalho apresenta um motor de busca combinatória para a detecção de
+comunidades críticas de atendimento ao cliente em redes sociais. As interações
+entre usuários são modeladas como um grafo não-direcionado e o problema de
+encontrar grupos densamente conectados (\emph{coortes de crise}) é reduzido ao
+problema do \emph{Clique Máximo}, NP-difícil. Foram implementadas duas
+heurísticas em C11 --- um algoritmo Guloso construtivo e uma metaheurística
+GRASP --- ambas apoiadas por uma representação em \emph{bitset} que reduz a
+interseção de vizinhanças a um AND bit a bit. Apresentamos a análise de
+complexidade, uma comparação teórica com o algoritmo exato de Bron--Kerbosch e
+uma avaliação experimental sobre benchmarks DIMACS e um conjunto real de tweets
+de atendimento ao cliente.
+\end{resumo}
+
+\section{Introdução e Cenário de Aplicação}
+
+Em plataformas de redes sociais, empresas mantêm canais de atendimento ao
+cliente que recebem grande volume de interações diárias. Quando ocorre uma falha
+sistêmica --- a indisponibilidade de um serviço, uma cobrança indevida em massa
+ou um defeito de produto --- surge rapidamente um conjunto de usuários
+\emph{altamente interconectados}, todos reagindo ao mesmo problema, respondendo
+uns aos outros e mencionando-se mutuamente. Esses agrupamentos, aqui chamados de
+\emph{coortes de crise}, são valiosos para a operação de suporte: identificá-los
+permite priorizar incidentes sistêmicos, dimensionar equipes e medir o alcance
+de uma falha.
+
+O problema de localizar o maior grupo em que \emph{todos} os usuários
+interagiram entre si corresponde, em teoria dos grafos, ao problema do
+\textbf{Clique Máximo}. Modelando a rede como um grafo não-direcionado
+$G = (V, E)$, em que cada vértice é um usuário e cada aresta uma interação
+(resposta direta ou menção), uma coorte de crise é um subconjunto
+$C \subseteq V$ tal que todo par $(u, v) \in C$ possui aresta direta, e busca-se
+maximizar $|C|$. O Clique Máximo é um problema NP-difícil
+\cite{garey1979}, o que motiva o emprego de heurísticas eficientes para
+instâncias de larga escala.
+
+Este relatório descreve a formulação do problema (Seção~\ref{sec:problema}), os
+algoritmos implementados (Seção~\ref{sec:algoritmos}), a análise de complexidade
+com comparação teórica ao algoritmo exato de Bron--Kerbosch
+(Seção~\ref{sec:complexidade}), os detalhes de implementação
+(Seção~\ref{sec:impl}), o estudo comparativo de desempenho
+(Seção~\ref{sec:experimentos}) e a aplicação prática sobre dados reais do
+Twitter (Seção~\ref{sec:aplicacao}).
+
+\section{Definição Formal do Problema}
+\label{sec:problema}
+
+Seja $G = (V, E)$ um grafo não-direcionado simples, com $n = |V|$ vértices e
+$m = |E|$ arestas. Um \textbf{clique} é um subconjunto $C \subseteq V$ tal que
+$\forall\, u, v \in C,\ u \neq v \Rightarrow (u, v) \in E$, isto é, o subgrafo
+induzido por $C$ é completo. O \textbf{Clique Máximo} é o clique de maior
+cardinalidade em $G$, e seu tamanho é o \emph{número de clique} $\omega(G)$.
+
+\begin{equation}
+\omega(G) = \max\{\, |C| : C \subseteq V \text{ e } C \text{ é clique} \,\}.
+\end{equation}
+
+A versão de decisão (``existe clique de tamanho $\geq k$?'') é NP-completa,
+sendo um dos 21 problemas clássicos de Karp; a versão de otimização é
+NP-difícil. Não se conhece algoritmo polinomial exato, e o problema é, ainda,
+difícil de aproximar.
+
+\section{Algoritmos Implementados}
+\label{sec:algoritmos}
+
+\subsection{Representação do Grafo}
+
+A escolha da estrutura de dados é determinante para o desempenho da busca por
+cliques, cuja operação central é a \emph{interseção de vizinhanças}. O grafo é
+representado de forma \textbf{dupla e simultânea}:
+
+\begin{itemize}
+  \item \textbf{Bitset (vetor de bits)} --- estrutura principal. Cada vértice
+  $i$ possui um vetor de palavras \texttt{uint64\_t} no qual o bit $j$ indica a
+  adjacência com o vértice $j$. A interseção de duas vizinhanças --- coração da
+  expansão de cliques --- reduz-se a um \emph{AND bit a bit}, percorrendo
+  $\lceil n/64 \rceil$ palavras em vez de $n$ posições. A contagem de candidatos
+  usa a instrução de hardware \texttt{popcount}.
+  \item \textbf{Lista de adjacência} --- estrutura auxiliar para percurso geral
+  de vizinhos e navegação esparsa.
+\end{itemize}
+
+\subsection{Módulo 1 --- Algoritmo Guloso}
+
+A heurística gulosa constrói um único clique de forma determinística:
+
+\begin{enumerate}
+  \item Seleciona como semente o vértice de \emph{maior grau global}.
+  \item Mantém um conjunto de candidatos $P$ (em bitset) com os vértices
+  adjacentes a todos os membros já no clique.
+  \item A cada passo, escolhe de $P$ o candidato com \emph{maior grau dentro de
+  $P$} (maior número de vizinhos comuns), maximizando a chance de continuar a
+  expansão.
+  \item Adiciona o candidato ao clique e atualiza $P \leftarrow P \cap N(v)$ via
+  AND de bitsets.
+  \item Termina quando $P = \varnothing$.
+\end{enumerate}
+
+O algoritmo é rápido, porém míope: por nunca revisar escolhas, fica preso em
+ótimos locais.
+
+\subsection{Módulo 2 --- Metaheurística GRASP}
+
+O GRASP (\emph{Greedy Randomized Adaptive Search Procedure}) executa
+\texttt{max\_iter} iterações independentes, retendo o melhor clique encontrado.
+Cada iteração combina duas fases:
+
+\begin{description}
+  \item[Fase construtiva (RCL).] Idêntica ao guloso, exceto que, em vez de
+  sempre tomar o melhor candidato, sorteia aleatoriamente entre os
+  \texttt{rcl\_size} melhores (a \emph{Restricted Candidate List}). Isso
+  diversifica as soluções entre iterações. A aleatoriedade usa um gerador
+  congruencial linear (LCG) com semente fixa, garantindo reprodutibilidade.
+  \item[Busca local 1-opt.] Tenta substituir um vértice do clique por
+  \emph{dois} vértices externos mutuamente adjacentes e adjacentes a todos os
+  demais membros. Cada troca bem-sucedida aumenta a cardinalidade em uma
+  unidade; o processo repete enquanto houver melhoria.
+\end{description}
+
+A combinação de construção aleatorizada com refinamento local permite ao GRASP
+escapar dos ótimos locais que limitam o guloso.
+
+\section{Análise de Complexidade}
+\label{sec:complexidade}
+
+Seja $n = |V|$, $m = |E|$, $\omega$ o tamanho do clique encontrado e
+$W = \lceil n/64 \rceil$ o número de palavras de um bitset. A
+Tabela~\ref{tab:complexidade} resume as operações fundamentais.
+
+\begin{table}[ht]
+\centering
+\caption{Complexidade das operações e algoritmos.}
+\label{tab:complexidade}
+\begin{tabular}{l l}
+\hline
+\textbf{Operação / Algoritmo} & \textbf{Complexidade} \\
+\hline
+AND de bitsets ($P \cap N(v)$)      & $O(n/64)$ \\
+\texttt{popcount} de bitset          & $O(n/64)$ \\
+Inserção de aresta                   & $O(1)$ \\
+Teste de aresta                      & $O(1)$ \\
+\hline
+Leitor DIMACS                        & $O(n + m)$ \\
+Parser Twitter (CSV)                 & $O(L)$ \footnotesize{($L$ = linhas)} \\
+\hline
+Guloso                               & $O(\omega \cdot n^2 / 64)$ \\
+GRASP                                & $O(\texttt{max\_iter} \cdot \omega \cdot n^2 / 64)$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{Guloso.} A busca da semente custa $O(n)$. O laço principal executa
+até $\omega$ passos; em cada passo varre os candidatos de $P$ (até $n$) e, para
+cada um, realiza um AND e um \texttt{popcount} de custo $O(n/64)$. Logo, cada
+passo custa $O(n \cdot n/64) = O(n^2/64)$ e o total é
+$O(\omega \cdot n^2/64)$. Como $\omega \leq n$, o pior caso é
+$O(n^3/64)$, mas na prática $\omega \ll n$.
+
+\paragraph{GRASP.} Cada iteração reproduz o custo da construção gulosa, acrescido
+de ordenações $O(n \log n)$ por passo (para montar a RCL) e da busca local, cuja
+varredura custa $O(\omega \cdot n^2/64)$ por passada. Multiplicando pelas
+\texttt{max\_iter} iterações, obtém-se
+$O(\texttt{max\_iter} \cdot \omega \cdot n^2/64)$. O fator $1/64$ proveniente do
+bitset é a principal vantagem prática da implementação.
+
+\subsection{Comparação Teórica com o Algoritmo Exato}
+
+Por ser NP-difícil, o Clique Máximo não admite solução exata polinomial
+conhecida. Para situar as heurísticas, consideramos dois métodos exatos de
+referência.
+
+\paragraph{Força bruta.} Enumerar todos os $2^n$ subconjuntos de $V$ e verificar,
+em $O(n^2)$, se cada um é clique resulta em $O(2^n \cdot n^2)$. É inviável já
+para $n \approx 40$.
+
+\paragraph{Bron--Kerbosch.} O algoritmo de Bron--Kerbosch
+\cite{bron1973} enumera \emph{todos} os cliques maximais por
+\emph{backtracking} recursivo sobre três conjuntos: $R$ (clique parcial),
+$P$ (candidatos) e $X$ (já explorados):
+
+\begin{verbatim}
+BronKerbosch(R, P, X):
+    se P = vazio e X = vazio:
+        reporta R como clique maximal
+    para cada v em P:
+        BronKerbosch(R + {v}, P inter N(v), X inter N(v))
+        P <- P \ {v}
+        X <- X + {v}
+\end{verbatim}
+
+Com a escolha de um \emph{pivô} para reduzir a ramificação, sua complexidade de
+pior caso é $O(3^{n/3})$, que é ótima no sentido de Moon--Moser: um grafo de
+$n$ vértices pode ter até $3^{n/3}$ cliques maximais. Com ordenação por
+\emph{degeneracy} $d$, obtém-se $O(d \cdot n \cdot 3^{d/3})$, eficiente para
+grafos esparsos. O Clique Máximo seria então o maior clique maximal reportado.
+
+A Tabela~\ref{tab:exato} contrasta as abordagens. Enquanto Bron--Kerbosch
+\emph{garante} a solução ótima, seu custo exponencial o restringe a instâncias
+pequenas; as heurísticas trocam essa garantia por escalabilidade polinomial.
+
+\begin{table}[ht]
+\centering
+\caption{Heurísticas vs.\ algoritmo exato.}
+\label{tab:exato}
+\begin{tabular}{l c c}
+\hline
+\textbf{Método} & \textbf{Complexidade} & \textbf{Garante ótimo?} \\
+\hline
+Força bruta        & $O(2^n \cdot n^2)$        & Sim \\
+Bron--Kerbosch     & $O(3^{n/3})$             & Sim \\
+Guloso             & $O(\omega \cdot n^2/64)$ & Não \\
+GRASP              & $O(\texttt{max\_iter}\cdot\omega\cdot n^2/64)$ & Não \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Detalhes de Implementação}
+\label{sec:impl}
+
+O projeto foi desenvolvido inteiramente em \textbf{C (padrão C11)}, sem
+bibliotecas externas de manipulação de grafos, e organizado em módulos coesos:
+
+\begin{itemize}
+  \item \texttt{graph.[ch]} --- estrutura do grafo (bitset + lista de
+  adjacência), criação, inserção/teste de arestas e estatísticas.
+  \item \texttt{clique.[ch]} --- algoritmos Guloso e GRASP, e a estrutura
+  \texttt{CliqueResult} (vértices, tamanho, iterações, tempo).
+  \item \texttt{dimacs.[ch]} --- leitor de benchmarks no formato DIMACS
+  \texttt{.clq} (linhas \texttt{p edge} e \texttt{e u v}).
+  \item \texttt{twitter\_parser.[ch]} --- parser de CSV do dataset Twitter, com
+  tabela hash \texttt{string}$\rightarrow$\texttt{int} (\emph{djb2}) para mapear
+  identificadores e resolver as arestas de resposta em passagem única.
+  \item \texttt{dot\_export.[ch]} --- exportação para o formato GraphViz
+  \texttt{.dot}, destacando o clique em vermelho.
+  \item \texttt{main.c} --- ponto de entrada com os modos \texttt{test},
+  \texttt{greedy}, \texttt{grasp}, \texttt{twitter} e \texttt{bench}.
+\end{itemize}
+
+A compilação usa \texttt{make} com as flags
+\texttt{-Wall -Wextra -O2 -std=c11}; o projeto compila sem nenhum aviso. A
+gestão de memória é explícita, com liberação de todas as estruturas
+(\texttt{graph\_free}, \texttt{clique\_result\_free}, \texttt{hashmap\_free}).
+
+\section{Estudo Comparativo de Desempenho}
+\label{sec:experimentos}
+
+\subsection{Metodologia}
+
+Os experimentos usaram dois benchmarks padrão da competição DIMACS, amplamente
+empregados na literatura de Clique Máximo. O GRASP foi configurado com
+\texttt{max\_iter}~$=100$, \texttt{rcl\_size}~$=3$ e semente~$=42$. A qualidade
+é medida como a razão entre o clique obtido e o ótimo conhecido. Os tempos foram
+obtidos via \texttt{clock()} (CPU time), com binário compilado em \texttt{-O2}.
+A Tabela~\ref{tab:grafos} caracteriza as instâncias.
+
+\begin{table}[ht]
+\centering
+\caption{Características das instâncias DIMACS.}
+\label{tab:grafos}
+\begin{tabular}{l c c c c c}
+\hline
+\textbf{Instância} & \textbf{Vért.} & \textbf{Arestas} & \textbf{Densidade}
+ & \textbf{Grau máx.} & \textbf{$\omega$} \\
+\hline
+\texttt{brock200\_2}  & 200 & 9876  & 0{,}4963 & 114 & 12 \\
+\texttt{p\_hat300-1}  & 300 & 10933 & 0{,}2438 & 132 & 8  \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Resultados}
+
+A Tabela~\ref{tab:resultados} apresenta os resultados. O número de arestas lido
+coincidiu exatamente com o esperado em ambos os arquivos, validando o leitor
+DIMACS.
+
+\begin{table}[ht]
+\centering
+\caption{Comparativo Guloso vs.\ GRASP nos benchmarks DIMACS.}
+\label{tab:resultados}
+\begin{tabular}{l l c c c c}
+\hline
+\textbf{Instância} & \textbf{Algoritmo} & \textbf{Clique} & \textbf{Ótimo}
+ & \textbf{Qualidade} & \textbf{Tempo (ms)} \\
+\hline
+\texttt{brock200\_2} & Guloso & 9  & 12 & 75{,}0\,\%  & 0{,}39  \\
+\texttt{brock200\_2} & GRASP  & 10 & 12 & 83{,}3\,\%  & 49{,}85 \\
+\hline
+\texttt{p\_hat300-1} & Guloso & 7  & 8  & 87{,}5\,\%  & 0{,}34  \\
+\texttt{p\_hat300-1} & GRASP  & 8  & 8  & 100{,}0\,\% & 42{,}04 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Discussão}
+
+Os resultados confirmam o \emph{trade-off} esperado entre qualidade e tempo:
+
+\begin{itemize}
+  \item O \textbf{GRASP supera o Guloso} em ambas as instâncias, atingindo o
+  \textbf{ótimo} ($\omega = 8$) em \texttt{p\_hat300-1} e ficando a apenas dois
+  vértices do ótimo em \texttt{brock200\_2}, instância notoriamente difícil.
+  \item O custo é maior: o GRASP leva $\sim$40--50\,ms contra $\sim$0{,}3\,ms do
+  Guloso (cerca de 100$\times$), coerente com o fator \texttt{max\_iter}~$=100$.
+  \item O Guloso é apropriado para uma primeira estimativa em tempo quase
+  instantâneo; o GRASP é preferível quando a qualidade da solução é prioritária
+  e o orçamento de tempo permite.
+\end{itemize}
+
+A diferença em \texttt{brock200\_2} ilustra a dificuldade da família
+\emph{brock}, projetada com cliques ``escondidos'' que resistem a heurísticas
+locais; mais iterações ou uma busca local mais agressiva (2-opt) poderiam
+reduzir essa lacuna.
+
+\section{Aplicação Prática: Dataset Twitter}
+\label{sec:aplicacao}
+
+Para demonstrar a aplicação no cenário-alvo, o módulo Twitter processou uma
+amostra real do dataset \emph{Customer Support on Twitter} (Kaggle). O parser
+constrói o grafo a partir do campo \texttt{in\_response\_to\_tweet\_id},
+ligando autores que respondem uns aos outros. Na amostra de 99 tweets, obteve-se
+um grafo com 44 autores, 28 arestas e densidade 0{,}0296; a busca gulosa
+identificou uma coorte (clique) de tamanho 2, compatível com a baixa densidade
+de uma amostra pequena. Sobre o dataset completo ($\sim$3 milhões de tweets), a
+mesma abordagem escala graças à passagem única do parser ($O(L)$) e à
+representação em bitset. O resultado é exportado em \texttt{.dot} e renderizado
+com GraphViz, destacando a coorte de crise em vermelho.
+
+\section{Conclusão}
+
+Este trabalho modelou a detecção de comunidades críticas de atendimento ao
+cliente como o problema do Clique Máximo e implementou, em C11, duas heurísticas
+--- Guloso e GRASP --- apoiadas por uma representação em bitset que torna a
+interseção de vizinhanças um AND bit a bit. A análise de complexidade situou as
+heurísticas como soluções polinomiais frente ao custo exponencial dos métodos
+exatos (força bruta e Bron--Kerbosch). Experimentalmente, o GRASP alcançou o
+ótimo em uma das instâncias e superou consistentemente o Guloso, ao custo de
+maior tempo de execução. A aplicação ao dataset real do Twitter demonstrou a
+viabilidade prática da abordagem. Como trabalho futuro, destacam-se a
+implementação de uma busca local 2-opt, o ajuste adaptativo de
+\texttt{max\_iter}/\texttt{rcl\_size} e a comparação empírica direta com o
+Bron--Kerbosch em instâncias pequenas.
+
+\section*{Repositório}
+
+O código-fonte completo, os benchmarks e as instruções de compilação estão
+disponíveis em:
+\begin{center}
+\url{https://github.com/Luccas-H/FP_DCC606_Tema_6_RR_2026}
+\end{center}
+
+\begin{thebibliography}{9}
+
+\bibitem{garey1979}
+GAREY, M. R.; JOHNSON, D. S.
+\emph{Computers and Intractability: A Guide to the Theory of NP-Completeness}.
+W. H. Freeman, 1979.
+
+\bibitem{bron1973}
+BRON, C.; KERBOSCH, J.
+Algorithm 457: Finding All Cliques of an Undirected Graph.
+\emph{Communications of the ACM}, v.~16, n.~9, p.~575--577, 1973.
+
+\bibitem{santiago2018}
+BEHAR, R.; COHEN, S.
+Finding All Maximal Connected $s$-Cliques in Social Networks.
+In: \emph{Proceedings of the 21st International Conference on Extending Database
+Technology (EDBT)}, p.~61--72, 2018. DOI: 10.5441/002/edbt.2018.07.
+
+\bibitem{feo1995}
+FEO, T. A.; RESENDE, M. G. C.
+Greedy Randomized Adaptive Search Procedures.
+\emph{Journal of Global Optimization}, v.~6, p.~109--133, 1995.
+
+\bibitem{dimacs}
+DIMACS Implementation Challenge --- Maximum Clique.
+Disponível em: \url{http://archive.dimacs.rutgers.edu/Challenges/}.
+
+\end{thebibliography}
+
+\end{document}
