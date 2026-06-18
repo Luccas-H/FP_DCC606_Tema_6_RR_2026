@@ -1,6 +1,4 @@
 # FP_DCC606_Tema_6_RR_2026
-=======
-# FP_DCC606_Tema_6_RR_2026
 
 > **Projeto Final — Análise de Algoritmos (DCC606)**  
 > Universidade Federal de Roraima — Departamento de Ciência da Computação  
@@ -55,10 +53,10 @@ FP_DCC606_Tema_6_RR_2026/
 │   │   ├── dot_export.c       # Gerador de arquivo .dot
 │   │   └── main.c             # Ponto de entrada e modos de execução
 │   └── benchmarks/
-│         ├── brock200_2.clq     # Benchmark DIMACS (200 vértices, ω=12)
-│         ├── p_hat300-1.clq     # Benchmark DIMACS (300 vértices, ω=8)
-│         ├── sample.csv         # Amostra do dataset Twitter (99 tweets)
-│         └── twcs.csv           # Dataset completo Twitter (3M tweets) *
+│       ├── brock200_2.clq     # Benchmark DIMACS (200 vértices, ω=12)
+│       ├── p_hat300-1.clq     # Benchmark DIMACS (300 vértices, ω=8)
+│       ├── sample.csv         # Amostra do dataset Twitter (99 tweets)
+│       └── twcs.csv           # Dataset completo Twitter (3M tweets) *
 ```
 
 > \* O arquivo `twcs.csv` não está versionado por exceder o limite do GitHub (516 MB).
